@@ -2,7 +2,7 @@
 ! See http://factorcode.org/license.txt for BSD license.
 USING: accessors arrays assocs definitions.icons fry help
 help.topics kernel math.rectangles models.arrow namespaces
-sequences tools.crossref ui.gadgets ui.gadgets.glass
+sequences tools.crossref ui.gadgets ui.tools.button-list ui.gadgets.glass
 ui.gadgets.labeled ui.gadgets.search-tables ui.gadgets.tables
 ui.gadgets.wrappers ui.gestures ui.images ui.operations ui.theme
 ui.tools.common ;
@@ -49,3 +49,6 @@ SLOT: model
 
 : com-show-incoming-links ( browser-gadget -- )
     [ usage ] "Incoming links" show-links-popup ;
+
+: com-show-active-buttons ( tool -- )
+    show-active-buttons-popup ;

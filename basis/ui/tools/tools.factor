@@ -1,8 +1,9 @@
 ! Copyright (C) 2006, 2009 Slava Pestov.
 ! See http://factorcode.org/license.txt for BSD license.
 USING: memory namespaces system ui ui.backend ui.commands
-ui.gestures ui.tools.browser ui.tools.common ui.tools.error-list
-ui.tools.listener vocabs.refresh ;
+ui.gestures ui.tools.browser ui.tools.browser.popups 
+ui.tools.common ui.tools.error-list ui.tools.listener
+vocabs.refresh ;
 IN: ui.tools
 
 \ refresh-all H{ { +nullary+ t } { +listener+ t } } define-command
