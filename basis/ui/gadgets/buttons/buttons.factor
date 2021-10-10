@@ -14,10 +14,10 @@ TUPLE: button < border pressed? selected? quot tooltip ;
 SYMBOL: active-buttons
 active-buttons [ H{ } ] initialize
 
-: label-from-button ( button -- str )
-    children>> [ label? ] find swap [ text>> ] [ drop "unknown" ] if ;
+: label-from-button ( button -- str/f )
+    children>> [ label? ] find swap [ text>> ] [ drop f ] if ;
 
-M: button graft* dup label-from-button active-buttons get set-at ;
+M: button graft* dup label-from-button [ active-buttons get set-at ] [ drop ] if* ;
 
 M: button ungraft* label-from-button active-buttons get delete-at ;
 
@@ -50,11 +50,14 @@ PRIVATE>
 : button-leave ( button -- )
     [ hide-status ] [ button-update ] bi ;
 
+: button-invoke ( button -- )
+    dup quot>> call( button -- ) ;
+
 : button-clicked ( button -- )
     [ ]
     [ button-update ]
     [ button-rollover? ] tri
-    [ dup quot>> call( button -- ) ] [ drop ] if ;
+    [ button-invoke ] [ drop ] if ;
 
 button H{
     { T{ button-up } [ button-clicked ] }

@@ -14,7 +14,7 @@ TUPLE: button-list-popup < wrapper ;
 : <active-buttons-table> ( model -- table )
     [ keys [ ">" swap 2array ] map ] <arrow> trivial-renderer [ second ] <search-table> 
     dup table>>
-        [ second active-buttons get at invoke-primary ] >>action
+        [ second active-buttons get at dup presentation? [ invoke-primary ] [ button-invoke ] if ] >>action
         [ hide-glass ] >>hook
         t >>selection-required?
         10 >>min-rows
