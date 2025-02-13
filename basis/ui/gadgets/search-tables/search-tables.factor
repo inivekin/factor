@@ -49,7 +49,6 @@ M: search-field handle-gesture
         renderer <table> f >>takes-focus? >>table
         dup table>> white-interior <scroller> 1 track-add ; inline
 
-M: search-table model-changed
-    nip field>> clear-search-field ;
+M: search-table model-changed 2drop ;
 
 M: search-table focusable-child* field>> ;
