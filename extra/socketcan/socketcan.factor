@@ -4,12 +4,21 @@ concurrency.conditions concurrency.flags continuations fonts
 formatting io io.backend.unix io.encodings.utf8 io.sockets
 io.sockets.private io.sockets.unix io.streams.string io.timeouts
 kernel math math.bitwise math.parser models models.arrow
-namespaces sequences socketcan.types strings threads ui
-ui.gadgets ui.gadgets.labels ui.gadgets.search-tables
-ui.gadgets.tables ui.gadgets.tracks ui.theme ui.tools.common
-unix.ffi unix.ffi.linux unix.time unix.types ;
+models.delay namespaces sequences socketcan.types strings
+threads timers ui ui.gadgets ui.gadgets.grids ui.gadgets.labels
+ui.gadgets.scrollers ui.gadgets.search-tables ui.gadgets.tables
+ui.gadgets.tracks ui.theme ui.tools.common unix.ffi
+unix.ffi.linux unix.time unix.types vectors ;
 FROM: models => change-model ;
 IN: socketcan
+
+TUPLE: decimate < delay ;
+M: decimate model-activated update-delay-model ;
+M: decimate model-changed nip timer>> dup thread>> [ drop ] [ start-timer ] if ;
+: <decimate> ( model timeout -- delay )
+    f decimate new-model dup [ update-delay-model ] curry
+    pick f <timer> >>timer swap >>timeout over >>model
+    [ add-dependency ] keep ;
 
 TUPLE: socketcan { port maybe{ integer } read-only initial: f } ;
 TUPLE: rawcan  < socketcan { channel maybe{ string } read-only initial: f } ;
@@ -113,19 +122,25 @@ M: rawcan empty-sockaddr drop sockaddr-can new ;
     [ (print-channel) ] [ [ (print-id) ] [ (print-data) ] bi ] bi* ;
 : print-candump-frame ( canframe addrspec timestamp -- )
     "(%.6f) " printf swap (print-candump-frame) ;
+
+! :: print-candump-frame-whole ( canframe addrspec timestamp -- )
+!     [ "(%.6f) " , "%s " , canframe extended?>> [ "%08X#" printf ] [ "      %03X#" printf ] if , ] "" make
+!     canframe>> data>> length "%02X" <repetition> append
+!     [ timestamp addrspec channel>> canframe [ id>> ] [ data>> ] bi ] dip printf ;
+    
 : enter-pressed? ( -- )
     readln drop ;
 : input-flag-raised? ( flag -- ? )
     [ 0 seconds wait-for-flag-timeout f ] [ timed-out-error? [ t ] [ f ] if nip ] recover ;
 : (candump) ( datagram ts flag -- )
     '[ [
-      [ _ receive-canmsg now _ time- duration>seconds print-candump-frame nl flush ]
+      [ _ receive-canmsg now duration>seconds >float _ - [ print-candump-frame nl ] with-string-writer printf ]
       [ dup io-timeout? [ rethrow ] unless drop ] recover
       _ input-flag-raised?
     ] loop ] in-thread ;
 : candump ( datagram -- )
     1 seconds over set-timeout
-    now <flag> [ (candump) ] keep
+    now duration>seconds >float <flag> [ (candump) ] keep
     enter-pressed? raise-flag ;
 
 
@@ -163,12 +178,71 @@ M: cantable-renderer row-columns drop
 M: cantable-renderer row-color 2drop text-color ;
 M: cantable-renderer row-value drop updating-id-list get value>> at value>> canframe>> [ (print-id) ] with-string-writer ;
 
-: <cantable> ( channel -- table )
+: <cantable> ( channel -- stop-flag table )
+    <flag> [
     '[
-        _ [ '[ _ receive-canmsg update-id-list t ] loop ] with-canbus
+        _ [ [ receive-canmsg update-id-list _ input-flag-raised? ] curry loop ] with-canbus ! ] profile P" /tmp/profile.txt" utf8 top-down '[ _ profile. ] with-file-writer
     ] in-thread
+           ] keep
     updating-id-list get [ keys ] <arrow> cantable-renderer [ ] <search-table> white-interior
     dup table>> 5 >>gap f >>takes-focus? default-monospace-font-name <font> >>font drop
     ;
+
+! INITIALIZED-SYMBOL: updating-id-list [ H{ } clone <model> ]
+INITIALIZED-SYMBOL: cangrid-columns [
+{
+  "time"
+  "dt"
+  "count"
+  "bus"
+  "dlc"
+  "id"
+  "data"
+}
+]
+:: add-to-id-grid ( canframe addrspec grid -- )
+    addrspec canframe [ duration new 1 <canviewer-row> <model> ] keep unique-str-id updating-id-list get [ set-at ] change-model*
+
+    grid grid>> length :> rownum
+    cangrid-columns get length <iota> [ drop <gadget> ] map grid grid>> push
+    grid canframe unique-str-id updating-id-list get value>> at
+        {
+          [ 0.1 seconds <decimate> [ canframe>> timestamp>> [ timestamp>unix-time >float "%.6f" sprintf ] [ "0.0" ] if* ] <?arrow> <label-control> default-monospace-font-name <font> >>font ]
+          [ 0.1 seconds <decimate> [ dt>> duration>seconds >float "%.6f" sprintf ] <?arrow> <label-control> default-monospace-font-name <font> >>font ]
+          [ 0.1 seconds <decimate>
+                [ count>> number>string ] <?arrow> <label-control> default-monospace-font-name <font> >>font ]
+          [ 0.1 seconds <decimate> [ addrspec>> channel>> ] <?arrow> <label-control> default-monospace-font-name <font> >>font ]
+          [ 0.1 seconds <decimate> [ canframe>> data>> length number>string ] <?arrow> <label-control> default-monospace-font-name <font> >>font ]
+          [ 0.1 seconds <decimate> [ [ canframe>> (print-id) ] with-string-writer ] <?arrow> <label-control> default-monospace-font-name <font> >>font ]
+          [ 0.1 seconds <decimate> [ canframe>> data>> [ "%02X" sprintf ] { } map-as " " join ] <?arrow> <label-control> default-monospace-font-name <font> >>font ]
+        } { } cleave>sequence
+        <enumerated> [ first2 swap rownum 2array grid-add ] each drop
+    ;
+: update-canviewer-model ( canframe addrspec model -- )
+    [ dup canframe>> timestamp>> dup [ drop unix-1970 ] unless
+      [ [ addrspec<< ] [ canframe<< ] [ ] tri ] dip over canframe>> timestamp>> swap time- >>dt
+      [ 1 + ] change-count drop
+    ] change-model*
+    ;
+: update-id-grid ( canframe addrspec grid -- )
+    [ over unique-str-id updating-id-list get ] dip '[ at
+        [ update-canviewer-model ]
+        [ _ add-to-id-grid ] if*
+    ] change-model*
+    ;
+: <cangrid> ( channel -- stop-flag grid )
+    cangrid-columns get [ <label> ] map 1vector <grid>
+    ! cangrid-columns get [ length 1 <frame> ] [ [ <label> ] map ] bi <enumerated> [ first2 swap 0 2array grid-add ] each dup grid>> V{ } like >>grid
+    { 5 5 } >>gap <flag> [
+    '[
+        _ [ [ receive-canmsg _ update-id-grid _ input-flag-raised? ] curry loop ] with-canbus ! ] profile P" /tmp/profile.txt" utf8 top-down '[ _ profile. ] with-file-writer
+    ] in-thread
+           ] 2keep
+    swap
+    <scroller>
+    white-interior
+    ;
     
-MAIN: candump-any
+! MAIN: candump-any
+MAIN-WINDOW: cangrid { { title "test" } } f <cangrid> nip >>gadgets ;
+! MAIN-WINDOW: cantable { { title "test" } } f <cantable> nip >>gadgets ;
