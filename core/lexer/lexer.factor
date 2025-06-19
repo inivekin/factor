@@ -66,7 +66,8 @@ ERROR: unexpected want got ;
 
 : (skip-word) ( col line -- newcol )
     [ [ forbid-tab " \"" member-eq? ] find-from CHAR: \" eq? [ 1 + ] when ]
-    [ length or ] bi ;
+    [ "//" subseq-index-from [ 2 + ] [ f ] if* 2dup and [ min ] [ or ] if ]
+    [ nip length or ] 2tri ;
 
 PRIVATE>
 
