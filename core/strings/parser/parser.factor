@@ -117,6 +117,11 @@ PRIVATE>
     [ column>> ] [ line-text>> ] bi
     [ "\"\\" member-eq? ] find-from ;
 
+: find-next-whitespace ( lexer -- i elt )
+    { lexer } declare
+    [ column>> ] [ line-text>> ] bi
+    [ "\\ \n" member-eq? ] find-from ;
+
 : check-space ( lexer -- )
     dup current-char forbid-tab {
         { CHAR: \s [ advance-char ] }
@@ -125,6 +130,7 @@ PRIVATE>
     } case ;
 
 DEFER: (parse-string)
+DEFER: (parse-unescaped-whitespace)
 
 : parse-found-token ( accum lexer i elt -- )
     { sbuf lexer fixnum fixnum } declare
@@ -135,6 +141,16 @@ DEFER: (parse-string)
         [ drop 2dup next-line% ] if*
         (parse-string)
     ] [ dup advance-char check-space drop ] if ;
+
+: parse-to-unescaped-whitespace ( accum lexer i elt -- )
+    { sbuf lexer fixnum fixnum } declare
+    [ over lexer-subseq pick push-all ] dip
+    CHAR: \ eq? [
+        dup dup [ next-char ] bi@
+        [ [ pick push ] bi@ ]
+        [ drop 2dup next-line% ] if*
+        (parse-unescaped-whitespace)
+    ] [ 2drop ] if ;
 
 : (parse-string) ( accum lexer -- )
     { sbuf lexer } declare
@@ -150,9 +166,27 @@ DEFER: (parse-string)
         "'\"'" "[eof]" unexpected
     ] if ;
 
+: (parse-unescaped-whitespace) ( accum lexer -- )
+    { sbuf lexer } declare
+    dup still-parsing? [
+        dup find-next-whitespace [
+            parse-to-unescaped-whitespace
+        ] [
+            drop 2dup next-line%
+            2drop
+        ] if*
+    ] [
+        "'\"'" "[eof]" unexpected
+    ] if ;
+
 PRIVATE>
 
 : parse-string ( -- str )
     SBUF" " clone [
         lexer get (parse-string)
+    ] keep unescape-string ;
+
+: parse-to-unenscaped-whitespace ( -- str )
+    SBUF" " clone [
+        lexer get (parse-unescaped-whitespace)
     ] keep unescape-string ;
