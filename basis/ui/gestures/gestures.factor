@@ -201,6 +201,42 @@ SYMBOL: drag-timer
         [ stop-timer ] [ drop ] if
     ] when ;
 
+SYMBOL: scroll-timer
+<box> scroll-timer set-global
+INITIALIZED-SYMBOL: scroll-acceleration [ 1 ]
+INITIALIZED-SYMBOL: scroll-accelerating-direction [ { 0 0 } ]
+DEFER: stop-scroll-timer
+: scroll-gesture ( -- )
+    scroll-acceleration get-global 0 = not [ scroll-acceleration get-global scroll-acceleration [ 1 - ] change-global [ mouse-scroll hand-gadget get-global propagate-gesture ] times ] [ stop-scroll-timer ] if ;
+
+: start-scroll-timer ( -- )
+        scroll-timer get-global occupied>> not
+        [
+            1 scroll-acceleration set-global
+            [ scroll-gesture ]
+            30 milliseconds
+            30 milliseconds
+            <timer>
+            [ scroll-timer get-global >box ]
+            [ start-timer ] bi
+        ]
+        [
+            ! scroll-direction change? set acceleration to 0
+            scroll-direction get-global scroll-accelerating-direction get-global = 
+            [
+                scroll-acceleration [ 2 + ] change-global
+            ]
+            [
+                0 scroll-acceleration set-global
+                scroll-direction get-global scroll-accelerating-direction set-global
+            ] if
+        ] if
+    ;
+: stop-scroll-timer ( -- )
+        scroll-timer get-global ?box
+        [ stop-timer ] [ drop ] if
+    ;
+
 : fire-motion ( -- )
     hand-buttons get-global empty? [
         motion hand-gadget get-global propagate-gesture
@@ -311,7 +347,8 @@ SYMBOL: drag-timer
 : send-scroll ( direction loc world -- )
     move-hand
     scroll-direction set-global
-    mouse-scroll hand-gadget get-global propagate-gesture ;
+    start-scroll-timer ;
+    ! mouse-scroll hand-gadget get-global propagate-gesture ;
 
 : send-action ( world gesture -- )
     swap world-focus propagate-gesture ;

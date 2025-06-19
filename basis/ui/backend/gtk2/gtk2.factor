@@ -1,15 +1,16 @@
 ! Copyright (C) 2010, 2011 Anton Gorenko, Philipp Bruschweiler.
 ! See https://factorcode.org/license.txt for BSD license.
-USING: accessors alien.accessors alien.c-types alien.strings arrays
-assocs classes.struct combinators continuations destructors
-environment gdk2.ffi gdk2.gl.ffi gdk2.pixbuf.ffi glib.ffi
-gobject.ffi gtk2.ffi gtk2.gl.ffi io.encodings.binary
-io.encodings.utf8 io.files io.pathnames kernel libc literals locals math
-math.bitwise math.vectors namespaces sequences strings system threads ui
-ui.backend ui.backend.gtk2.input-methods ui.backend.gtk2.io ui.backend.x11.keys
-ui.clipboards ui.event-loop ui.gadgets ui.gadgets.private
-ui.gadgets.worlds ui.gestures ui.pixel-formats
-ui.private vocabs.loader ;
+USING: accessors alien.accessors alien.c-types alien.strings
+arrays assocs classes.struct colors combinators continuations
+destructors environment gdk2.ffi gdk2.gl.ffi gdk2.pixbuf.ffi
+glib.ffi gobject.ffi gtk2.ffi gtk2.gl.ffi io.encodings.binary
+io.encodings.utf8 io.files io.pathnames kernel libc literals
+locals math math.bitwise math.vectors namespaces sequences
+strings system threads ui ui.backend
+ui.backend.gtk2.input-methods ui.backend.gtk2.io
+ui.backend.x11.keys ui.clipboards ui.event-loop ui.gadgets
+ui.gadgets.private ui.gadgets.worlds ui.gestures
+ui.pixel-formats ui.private ui.theme vocabs.loader ;
 IN: ui.backend.gtk2
 
 SINGLETON: gtk2-ui-backend
@@ -415,6 +416,13 @@ M: window-handle flush-gl-context
         gtk_window_set_position
     ] [ first2 gtk_window_move ] if ;
 
+STRUCT: GdkColor-struct
+  { pixel u32 }
+  { red u16 }
+  { green u16 }
+  { blue u16 } ;
+
+
 M:: gtk2-ui-backend (open-window) ( world -- )
     GTK_WINDOW_TOPLEVEL gtk_window_new :> win
     gtk_drawing_area_new :> drawable
@@ -422,6 +430,8 @@ M:: gtk2-ui-backend (open-window) ( world -- )
     gtk_im_multicontext_new :> im
 
     win drawable im <window-handle> world handle<<
+
+    win GTK_STATE_NORMAL 0 content-background >rgba-components drop [ 0xFFFF * ] tri@ GdkColor-struct boa gtk_widget_modify_bg
 
     world win register-window
 

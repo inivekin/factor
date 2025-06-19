@@ -4,7 +4,7 @@ USING: accessors assocs cache colors combinators
 combinators.short-circuit concurrency.promises continuations
 destructors kernel literals math models namespaces opengl
 sequences strings ui.backend ui.gadgets ui.gadgets.tracks
-ui.gestures ui.pixel-formats ui.render ;
+ui.gestures ui.pixel-formats ui.render ui.theme ;
 IN: ui.gadgets.worlds
 
 SYMBOLS:
@@ -125,9 +125,8 @@ M: world request-focus-on
         <promise> >>promise ;
 
 : initial-background-color ( attributes -- color )
-    window-controls>> textured-background swap member-eq?
-    [ T{ rgba f 0.0 0.0 0.0 0.0 } ]
-    [ T{ rgba f 1.0 1.0 1.0 1.0 } ] if ;
+    drop content-background
+    ;
 
 GENERIC#: apply-world-attributes 1 ( world attributes -- world )
 

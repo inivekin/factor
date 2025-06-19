@@ -76,9 +76,9 @@ TUPLE: thumb < track ;
     } cleave ;
 
 thumb H{
-    { T{ button-down } [ begin-drag ] }
-    { T{ button-up } [ drop ] }
-    { T{ drag } [ do-drag ] }
+    { T{ button-down { # 1 } } [ begin-drag ] }
+    { T{ button-up { # 1 } } [ drop ] }
+    { T{ drag { # 1 } } [ do-drag ] }
 } set-gestures
 
 : compute-direction ( elevator -- -1/1 )
