@@ -87,6 +87,8 @@ C: <pathname> pathname
 : >pathname ( obj -- pathname )
     dup pathname? [ <pathname> ] unless ;
 
+SYNTAX: .// lexer get skip-blank parse-to-whitespace >pathname suffix! ;
+
 : pathname> ( pathname -- obj )
     dup pathname? [ string>> ] when ;
 
@@ -170,6 +172,8 @@ M: object home "" resource-path ;
 GENERIC: vocab-path ( path -- newpath )
 
 GENERIC: absolute-path ( path -- path' )
+
+SYNTAX: ~// lexer get skip-blank parse-to-whitespace >pathname absolute-path suffix! ;
 
 M: string absolute-path
     {

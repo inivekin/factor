@@ -186,7 +186,7 @@ PRIVATE>
         lexer get (parse-string)
     ] keep unescape-string ;
 
-: parse-to-unenscaped-whitespace ( -- str )
+: parse-to-whitespace ( -- str )
     SBUF" " clone [
         lexer get (parse-unescaped-whitespace)
     ] keep unescape-string ;
