@@ -50,6 +50,9 @@ PRIVATE>
 
 SYMBOL: initial-thread
 
+INITIALIZED-SYMBOL: partition-window-duration-ns [ 100000000 ]
+INITIALIZED-SYMBOL: partition-window-start [ f ]
+INITIALIZED-SYMBOL: last-thread-start [ f ]
 TUPLE: thread
     { name string }
     { quot callable initial: [ ] }
@@ -60,7 +63,10 @@ TUPLE: thread
     runnable
     mailbox
     { variables hashtable }
-    sleep-entry ;
+    sleep-entry
+    { partition-limit maybe{ integer } initial: f } ! % of partition window
+    partition-accumulation ! run time during this partition window
+    ;
 
 : self ( -- thread )
     OBJ-CURRENT-THREAD special-object { thread } declare ; inline
@@ -187,12 +193,36 @@ M: thread (next)
     current-callback waiting-callbacks delete-at*
     [ resume-now ] [ drop ] if ;
 
+: update-partition-state ( -- )
+    run-queue peek-front* [
+    dup array? [ second ] when
+    last-thread-start get [ nano-count swap - '[ _ swap [ + ] when* ] change-partition-accumulation ] when* drop
+    ] [ drop ] if
+    ;
+
+: partition-window-reset? ( -- ? )
+    nano-count partition-window-start get [ -
+    partition-window-duration-ns get
+    > ] [ drop f ] if*
+    ;
+: partition-window-reset ( -- ) ! maybe instead of replacing window-start, update it by the difference?
+    partition-window-reset? [ nano-count partition-window-start set threads values [ f >>partition-accumulation drop ] each ] when
+    ;
+
+: partition-window-exceeded? ( thread -- ? )
+    dup array? [ second ] when
+    [ partition-accumulation>> ] [ partition-limit>> ] bi [ 0.01 * partition-window-duration-ns get * > ] [ drop f ] if* ;
+
 : next ( -- obj thread )
+    update-partition-state
+    partition-window-reset
     expire-sleep-loop
     wake-up-callbacks
     run-queue pop-back
+    ! dup partition-window-exceeded? [ run-queue push-front run-queue pop-back ] when
     dup array? [ first2 ] [ [ f ] dip ] if
     f >>state
+    nano-count last-thread-start set
     dup set-self ;
 
 PRIVATE>
@@ -227,6 +257,9 @@ M: real sleep
 
 : spawn ( quot name -- thread )
     <thread> [ (spawn) ] keep ;
+
+: spawn-partitioned ( quot name % -- thread )
+    [ <thread> ] dip >>partition-limit [ (spawn) ] keep ;
 
 : spawn-server ( quot name -- thread )
     [ '[ _ loop ] ] dip spawn ;

@@ -169,7 +169,7 @@ SYMBOL: ui-thread
 
 : start-ui-thread ( -- )
     [ self ui-thread set-global update-ui-loop ]
-    "UI update" spawn drop ;
+    "UI update" 10 spawn-partitioned drop ;
 
 : start-ui ( quot -- )
     call( -- ) notify-ui-thread start-ui-thread ;
